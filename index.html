@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>41 Little Gifts — Birthday Bunny</title>
+<style>
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;background:#b9dff2;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+  #game{position:fixed;inset:0}
+  #hud{position:fixed;top:18px;left:18px;z-index:5;color:#fff;pointer-events:none;text-shadow:0 2px 5px #5b476a}
+  #counter{font-size:22px;font-weight:800;background:rgba(77,48,92,.72);padding:10px 15px;border-radius:16px;backdrop-filter:blur(5px)}
+  #hint{margin-top:8px;font-size:13px;background:rgba(77,48,92,.58);padding:7px 11px;border-radius:12px;max-width:320px}
+  #message{
+    position:fixed;left:50%;bottom:34px;transform:translateX(-50%);
+    z-index:6;max-width:min(680px,88vw);padding:15px 20px;border-radius:18px;
+    background:rgba(255,250,255,.94);color:#4b3655;text-align:center;
+    box-shadow:0 8px 30px rgba(62,35,72,.22);font-size:16px;font-weight:650;
+    opacity:0;transition:opacity .25s;pointer-events:none
+  }
+  #start,#finish{
+    position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(rgba(62,37,75,.38),rgba(45,73,76,.42));padding:24px
+  }
+  .card{max-width:620px;background:rgba(255,250,255,.96);border-radius:28px;padding:30px;
+    text-align:center;color:#4b3655;box-shadow:0 20px 70px rgba(39,20,48,.28)}
+  h1{margin:0 0 10px;font-size:clamp(30px,6vw,52px);color:#74478e}
+  .bunny{font-size:70px;line-height:1}
+  p{line-height:1.55}
+  button{border:0;border-radius:999px;background:#8d5aaa;color:#fff;font-weight:800;
+    padding:13px 22px;font-size:16px;cursor:pointer;box-shadow:0 6px 15px rgba(91,55,113,.25)}
+  button:hover{filter:brightness(1.06)}
+  #finish{display:none}
+  .small{font-size:13px;opacity:.75}
+
+  /* Mobile FPS controls */
+  #mobileControls{
+    position:fixed;inset:0;z-index:7;display:none;pointer-events:none;
+    touch-action:none;
+  }
+  #joystick{
+    position:absolute;left:24px;bottom:28px;width:118px;height:118px;
+    border-radius:50%;background:rgba(77,48,92,.22);
+    border:2px solid rgba(255,255,255,.5);box-shadow:0 8px 25px rgba(39,20,48,.16);
+    pointer-events:auto;touch-action:none;
+  }
+  #stick{
+    position:absolute;left:50%;top:50%;width:52px;height:52px;
+    margin:-26px;border-radius:50%;background:rgba(255,255,255,.82);
+    box-shadow:0 4px 15px rgba(39,20,48,.25);
+  }
+  #lookHint{
+    position:absolute;right:18px;bottom:34px;max-width:150px;
+    padding:9px 12px;border-radius:14px;background:rgba(77,48,92,.5);
+    color:#fff;font-size:12px;text-align:center;text-shadow:0 1px 3px #5b476a;
+  }
+  #crosshair{
+    position:fixed;left:50%;top:50%;width:8px;height:8px;z-index:4;
+    transform:translate(-50%,-50%);border:1.5px solid rgba(255,255,255,.8);
+    border-radius:50%;box-shadow:0 0 4px rgba(50,30,60,.55);
+    pointer-events:none;opacity:.8;
+  }
+  @media (max-width: 800px), (pointer:coarse){
+    #mobileControls{display:block}
+    #hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hud">
+  <div id="counter">🎁 Gifts: <span id="count">0</span> / 41</div>
+  <div id="hint">WASD to run · Mouse to look · W = forward · A/D = left/right · Walk into a gift box to collect it</div>
+</div>
+<div id="message"></div>
+<div id="crosshair"></div>
+<div id="mobileControls">
+  <div id="joystick"><div id="stick"></div></div>
+  <div id="lookHint">Swipe anywhere on the right to look</div>
+</div>
+
+<div id="start">
+  <div class="card">
+    <div class="bunny">🐰</div>
+    <h1>41 Little Gifts</h1>
+    <p>A tiny birthday world made just for you.<br>
+    Help the little purple bunny explore the hills and collect all 41 gifts.</p>
+    <p class="small">Each gift has a little message waiting inside.</p>
+    <button id="startBtn">Enter the birthday meadow</button>
+  </div>
+</div>
+
+<div id="finish">
+  <div class="card">
+    <div class="bunny">🐰💜🎂</div>
+    <h1>Happy Birthday!</h1>
+    <p id="finalText">You found all 41 little gifts.</p>
+    <p>May this next chapter bring you beautiful places, ridiculous amounts of laughter, peaceful days, and people who remind you how loved you are.</p>
+    <button id="againBtn">Walk the meadow again</button>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+
+const TOTAL = 41;
+
+const messages = [
+  "Happy birthday to one of my favourite people. 💜",
+  "Thank you for being the kind of friend who makes ordinary days better.",
+  "May this year give you more reasons to smile than you can count.",
+  "You deserve good things, good people, and good food. Preferably all three at once.",
+  "Thank you for all the laughs, the chaos, and the memories.",
+  "I hope today reminds you how many people are genuinely happy that you exist.",
+  "May your next adventure be even better than the last one. #fanGirl",
+  "You have been a wonderful friend for so many years (decades ahaha). Here's to many more.",
+  "Wishing you peaceful mornings and exciting afternoons.",
+  "May you always have something beautiful to look forward to.",
+  "Thank you for being someone I can always count on - good and bad. Alam mo na 'yun Tsang.",
+  "Here's to another year of becoming even more yourself.",
+  "I hope life surprises you in the best possible ways.",
+  "You make friendship look easy. Thank you for that.",
+  "May your happiness be louder than your worries. Truelala.",
+  "I hope you get plenty of reasons to laugh until your cheeks hurt.",
+  "You deserve a birthday as lovely as your heart.",
+  "Thank you for all the conversations (kasama virtual) that somehow turned into memories.",
+  "May this year bring you places you've never seen and stories you'll never forget.",
+  "A little reminder: you are appreciated more than you probably realise.",
+  "May your dreams feel closer this year. Pero practice ka pa ring matulog ng maaga.",
+  "I hope you keep finding little moments that make life feel magical.",
+  "Thank you for being part of my life story.",
+  "May your year be full of unexpected good news.",
+  "You are officially one year more experienced at being awesome. I hope not 1 more kilogram. Ahaha!",
+  "Here's to more inside jokes that make absolutely no sense to anyone else. Atin ang mundo mode.",
+  "I hope the next 12 months are gentle when you need them to be and exciting when you want them to be.",
+  "Thank you for being my Tsang through all the different seasons of life.",
+  "May you always have people around you who celebrate you properly.",
+  "Your friendship is one of those things that gets better with time.",
+  "Wishing you courage for the hard days and joy for the easy ones.",
+  "May there always be a little bit of wonder waiting around the corner. Uy exciting din life mo, anukaber!",
+  "I hope you never forget how much you have already accomplished. 'Di lang problems. Ahaha!",
+  "Another year, another collection of stories waiting to happen.",
+  "May your future self look back on this year with a huge smile.",
+  "Thank you for every ridiculous, random, sleepless, lutang, confused, serious and wonderful memory.",
+  "May life be kind to you, and may you be kind to yourself. And more music in your life.",
+  "I hope this birthday starts a chapter you will love reading.",
+  "No matter where life takes us, I am glad our paths crossed.",
+  "I love you Tsang!",
+  "Tsang, thank you for being you. Happy birthday. 💜"
+];
+
+const root = document.getElementById("game");
+const countEl = document.getElementById("count");
+const messageEl = document.getElementById("message");
+const start = document.getElementById("start");
+const finish = document.getElementById("finish");
+const finalText = document.getElementById("finalText");
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xb8dff0);
+scene.fog = new THREE.Fog(0xb8dff0, 65, 210);
+
+const camera = new THREE.PerspectiveCamera(68, innerWidth/innerHeight, 0.1, 500);
+camera.position.set(0, 3.3, 12);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+root.appendChild(renderer.domElement);
+
+const hemi = new THREE.HemisphereLight(0xfff6ff, 0x55705c, 2.2);
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(0xfff3cf, 3.0);
+sun.position.set(-35, 55, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left = -100; sun.shadow.camera.right = 100;
+sun.shadow.camera.top = 100; sun.shadow.camera.bottom = -100;
+scene.add(sun);
+
+const clock = new THREE.Clock();
+const keys = {};
+let started = false, ended = false, collected = 0;
+let yaw = 0, pitch = -0.12;
+let bunny, gifts = [], grass = [];
+const worldSize = 150;
+
+// Mobile virtual joystick state.
+const touchMove={x:0,y:0};
+let lookTouchId=null;
+let lookLastX=0, lookLastY=0;
+let joystickTouchId=null;
+
+function terrainHeight(x,z){
+  return 2.5*Math.sin(x*.055)*Math.cos(z*.047)
+       + 1.4*Math.sin((x+z)*.09)
+       + .7*Math.cos(z*.16);
+}
+
+const groundGeo = new THREE.PlaneGeometry(worldSize, worldSize, 100, 100);
+groundGeo.rotateX(-Math.PI/2);
+const pos = groundGeo.attributes.position;
+for(let i=0;i<pos.count;i++){
+  const x=pos.getX(i), z=pos.getZ(i);
+  pos.setY(i, terrainHeight(x,z));
+}
+groundGeo.computeVertexNormals();
+const ground = new THREE.Mesh(
+  groundGeo,
+  new THREE.MeshStandardMaterial({color:0x79a96a, roughness:1})
+);
+ground.receiveShadow = true;
+scene.add(ground);
+
+function addGrass(){
+  const grassMat=new THREE.MeshStandardMaterial({
+    color:0x477f4b, roughness:1, side:THREE.DoubleSide
+  });
+  const lightGrassMat=new THREE.MeshStandardMaterial({
+    color:0x6a9d57, roughness:1, side:THREE.DoubleSide
+  });
+
+  // Dense little clumps instead of isolated vertical sticks.
+  const bladeGeo=new THREE.ConeGeometry(.035,.42,5);
+  const bladeWideGeo=new THREE.ConeGeometry(.055,.34,5);
+
+  for(let i=0;i<360;i++){
+    const x=(Math.random()-.5)*140;
+    const z=(Math.random()-.5)*140;
+    const y=terrainHeight(x,z)+.01;
+
+    const patch=new THREE.Group();
+    const blades=5+Math.floor(Math.random()*6);
+
+    for(let j=0;j<blades;j++){
+      const blade=new THREE.Mesh(
+        j%4===0 ? bladeWideGeo : bladeGeo,
+        j%3===0 ? lightGrassMat : grassMat
+      );
+
+      const angle=Math.random()*Math.PI*2;
+      const radius=Math.random()*.24;
+      blade.position.set(
+        Math.cos(angle)*radius,
+        .15+Math.random()*.08,
+        Math.sin(angle)*radius
+      );
+      blade.rotation.y=Math.random()*Math.PI;
+      blade.rotation.z=(Math.random()-.5)*.32;
+      blade.scale.y=.7+Math.random()*.75;
+      patch.add(blade);
+    }
+
+    patch.position.set(x,y,z);
+    patch.scale.setScalar(.7+Math.random()*.65);
+    patch.userData.phase=Math.random()*Math.PI*2;
+    grass.push(patch);
+    scene.add(patch);
+  }
+}
+addGrass();
+
+function addTrees(){
+  const trunkMat=new THREE.MeshStandardMaterial({
+    color:0x6f4b32, roughness:1
+  });
+  const leafMats=[
+    new THREE.MeshStandardMaterial({color:0x3f7545,roughness:1}),
+    new THREE.MeshStandardMaterial({color:0x56894c,roughness:1}),
+    new THREE.MeshStandardMaterial({color:0x6c9952,roughness:1})
+  ];
+
+  for(let i=0;i<34;i++){
+    let x,z,tries=0;
+    do{
+      x=(Math.random()-.5)*130;
+      z=(Math.random()-.5)*130;
+      tries++;
+    }while(
+      (Math.hypot(x,z)<17 ||
+       Math.hypot(x-bunny.position.x,z-bunny.position.z)<10) &&
+      tries<80
+    );
+
+    const tree=new THREE.Group();
+    const groundY=terrainHeight(x,z);
+
+    const trunk=new THREE.Mesh(
+      new THREE.CylinderGeometry(.18,.27,2.0,8),
+      trunkMat
+    );
+    trunk.position.y=1.0;
+    trunk.castShadow=true;
+    tree.add(trunk);
+
+    const crownSizes=[
+      {r:.85,y:2.15},
+      {r:1.05,y:2.65},
+      {r:.72,y:3.18}
+    ];
+
+    crownSizes.forEach((c,j)=>{
+      const crown=new THREE.Mesh(
+        new THREE.SphereGeometry(c.r,12,9),
+        leafMats[(i+j)%leafMats.length]
+      );
+      crown.position.set(
+        j===1 ? 0 : .18*(j===2 ? 1 : -1),
+        c.y,
+        j===0 ? -.05 : .04
+      );
+      crown.castShadow=true;
+      tree.add(crown);
+    });
+
+    tree.position.set(x,groundY,z);
+    tree.scale.setScalar(.8+Math.random()*.7);
+    tree.rotation.y=Math.random()*Math.PI*2;
+    scene.add(tree);
+  }
+}
+
+function makeBunny(){
+  const group=new THREE.Group();
+
+  const fur=new THREE.MeshStandardMaterial({
+    color:0x8d5aaa, roughness:.94, metalness:0
+  });
+  const furLight=new THREE.MeshStandardMaterial({
+    color:0xa96fc4, roughness:.94, metalness:0
+  });
+  const inner=new THREE.MeshStandardMaterial({
+    color:0xf0c8e8, roughness:.9
+  });
+  const dark=new THREE.MeshStandardMaterial({
+    color:0x28192f, roughness:.58
+  });
+  const noseMat=new THREE.MeshStandardMaterial({
+    color:0x82466f, roughness:.72
+  });
+  const white=new THREE.MeshStandardMaterial({
+    color:0xffffff, roughness:.35
+  });
+
+  // A rabbit should be longer than it is tall: compact body, smaller head,
+  // large hindquarters, and feet that actually meet the ground.
+  const body=new THREE.Mesh(new THREE.SphereGeometry(1,30,22),fur);
+  body.scale.set(.78,.70,1.02);
+  body.position.set(0,1.12,-.02);
+  body.castShadow=true;
+  group.add(body);
+  group.userData.body=body;
+
+  const chest=new THREE.Mesh(new THREE.SphereGeometry(.56,24,18),furLight);
+  chest.scale.set(.70,.92,.52);
+  chest.position.set(0,1.10,.62);
+  chest.castShadow=true;
+  group.add(chest);
+
+  const rump=new THREE.Mesh(new THREE.SphereGeometry(.58,24,18),fur);
+  rump.scale.set(1.0,.95,1.05);
+  rump.position.set(0,1.02,-.55);
+  rump.castShadow=true;
+  group.add(rump);
+
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.67,30,22),fur);
+  head.scale.set(.98,1.0,.92);
+  head.position.set(0,2.00,.55);
+  head.castShadow=true;
+  group.add(head);
+  group.userData.head=head;
+
+  // Softer, narrower ears for a more natural silhouette.
+  for(const s of [-1,1]){
+    const ear=new THREE.Mesh(new THREE.CapsuleGeometry(.17,.82,10,16),fur);
+    ear.position.set(s*.30,2.82,.48);
+    ear.rotation.z=s*.10;
+    ear.rotation.x=-.03;
+    ear.castShadow=true;
+    group.add(ear);
+
+    const inEar=new THREE.Mesh(new THREE.CapsuleGeometry(.075,.58,10,14),inner);
+    inEar.position.set(s*.30,2.82,.64);
+    inEar.rotation.z=s*.10;
+    inEar.rotation.x=-.03;
+    group.add(inEar);
+  }
+
+  // Eyes are smaller and set into the face instead of looking cartoonishly wide.
+  for(const s of [-1,1]){
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(.075,16,12),dark);
+    eye.position.set(s*.245,2.06,1.13);
+    eye.scale.set(1,.98,.65);
+    group.add(eye);
+
+    const shine=new THREE.Mesh(new THREE.SphereGeometry(.022,10,8),white);
+    shine.position.set(s*.225,2.085,1.178);
+    group.add(shine);
+  }
+
+  const muzzle=new THREE.Mesh(new THREE.SphereGeometry(.22,20,14),inner);
+  muzzle.scale.set(1.25,.76,.70);
+  muzzle.position.set(0,1.91,1.13);
+  group.add(muzzle);
+
+  const nose=new THREE.Mesh(new THREE.SphereGeometry(.065,14,10),noseMat);
+  nose.position.set(0,1.96,1.285);
+  group.add(nose);
+
+  const frontLegs=[];
+  for(const s of [-1,1]){
+    const leg=new THREE.Group();
+    leg.position.set(s*.31,.57,.45);
+
+    const foreleg=new THREE.Mesh(
+      new THREE.CapsuleGeometry(.115,.36,8,12),fur
+    );
+    foreleg.position.y=.18;
+    foreleg.castShadow=true;
+    leg.add(foreleg);
+
+    const paw=new THREE.Mesh(new THREE.SphereGeometry(.17,18,12),furLight);
+    paw.scale.set(.95,.48,1.35);
+    paw.position.set(0,-.035,.13);
+    paw.castShadow=true;
+    leg.add(paw);
+
+    group.add(leg);
+    frontLegs.push(leg);
+  }
+
+  const hindLegs=[];
+  for(const s of [-1,1]){
+    const leg=new THREE.Group();
+    leg.position.set(s*.49,.49,-.48);
+
+    const thigh=new THREE.Mesh(new THREE.SphereGeometry(.30,22,16),fur);
+    thigh.scale.set(.95,1.02,1.12);
+    thigh.position.set(0,.20,-.02);
+    thigh.castShadow=true;
+    leg.add(thigh);
+
+    const paw=new THREE.Mesh(new THREE.SphereGeometry(.22,18,12),furLight);
+    paw.scale.set(1,.50,1.48);
+    paw.position.set(0,-.17,.13);
+    paw.castShadow=true;
+    leg.add(paw);
+
+    group.add(leg);
+    hindLegs.push(leg);
+  }
+
+  const tail=new THREE.Mesh(new THREE.SphereGeometry(.27,22,16),inner);
+  tail.position.set(0,1.16,-1.02);
+  tail.castShadow=true;
+  group.add(tail);
+  group.userData.tail=tail;
+
+  group.userData.frontLegs=frontLegs;
+  group.userData.hindLegs=hindLegs;
+
+  // Small whiskers, kept subtle.
+  for(const s of [-1,1]){
+    for(let i=0;i<2;i++){
+      const whisker=new THREE.Mesh(
+        new THREE.CylinderGeometry(.006,.006,.25,6),
+        new THREE.MeshStandardMaterial({color:0xf3eaf4,roughness:.75})
+      );
+      whisker.position.set(s*(.15+.04*i),1.90,1.29);
+      whisker.rotation.z=s*(Math.PI/2.5+i*.07);
+      whisker.rotation.x=Math.PI/2;
+      group.add(whisker);
+    }
+  }
+
+  group.scale.setScalar(.82);
+  scene.add(group);
+  return group;
+}
+
+bunny=makeBunny();
+addTrees();
+
+function makeGift(x,z,i){
+  const g=new THREE.Group();
+  const boxColors=[0xf28cb8,0x8e69cf,0xf2b84b,0x68a8d8,0x7fcf9a];
+  const c=boxColors[i%boxColors.length];
+  const boxMat=new THREE.MeshStandardMaterial({color:c,roughness:.7});
+  const ribbonMat=new THREE.MeshStandardMaterial({color:0xfff2c7,roughness:.5});
+  const box=new THREE.Mesh(new THREE.BoxGeometry(1.15,.85,1.15),boxMat);
+  box.position.y=.52; box.castShadow=true; g.add(box);
+  const r1=new THREE.Mesh(new THREE.BoxGeometry(.18,.9,1.19),ribbonMat);
+  r1.position.y=.54; r1.castShadow=true; g.add(r1);
+  const r2=new THREE.Mesh(new THREE.BoxGeometry(1.19,.9,.18),ribbonMat);
+  r2.position.y=.54; r2.castShadow=true; g.add(r2);
+  const bow1=new THREE.Mesh(new THREE.TorusGeometry(.22,.075,.10,18,Math.PI),ribbonMat);
+  bow1.rotation.z=Math.PI/2; bow1.position.set(-.14,1.05,0); g.add(bow1);
+  const bow2=bow1.clone(); bow2.position.x=.14; bow2.rotation.z=-Math.PI/2; g.add(bow2);
+  const p=pickPosition(i);
+  g.position.set(p.x,p.y,p.z);
+  g.userData={index:i, message:messages[i], baseY:p.y, phase:Math.random()*Math.PI*2};
+  scene.add(g);
+  gifts.push(g);
+}
+
+function pickPosition(i){
+  let x,z,ok=false;
+  for(let tries=0;tries<100 && !ok;tries++){
+    x=(Math.random()-.5)*120;
+    z=(Math.random()-.5)*120;
+    if(Math.hypot(x,z)<12) continue;
+    ok=true;
+    for(const g of gifts){
+      if(Math.hypot(x-g.position.x,z-g.position.z)<7){ok=false;break;}
+    }
+  }
+  return {x,z,y:terrainHeight(x,z)};
+}
+
+for(let i=0;i<TOTAL;i++) makeGift(0,0,i);
+
+function showMessage(text){
+  messageEl.textContent=text;
+  messageEl.style.opacity="1";
+  clearTimeout(showMessage.t);
+  showMessage.t=setTimeout(()=>messageEl.style.opacity="0",4800);
+}
+
+function collectGift(g){
+  if(g.userData.collected) return;
+  g.userData.collected=true;
+  collected++;
+  countEl.textContent=collected;
+  showMessage("🎁 "+g.userData.message);
+  const startScale=g.scale.clone();
+  let t=0;
+  function pop(){
+    t+=.07;
+    g.scale.setScalar(Math.max(.01,1-t));
+    g.rotation.y+=.16;
+    if(t<1) requestAnimationFrame(pop);
+    else scene.remove(g);
+  }
+  pop();
+  if(collected===TOTAL){
+    ended=true;
+    setTimeout(()=>{
+      finalText.textContent=`You found all 41 little gifts — and every one was carrying a little piece of appreciation for you.`;
+      finish.style.display="flex";
+      document.exitPointerLock?.();
+    },1800);
+  }
+}
+
+function resetGame(){
+  for(const g of gifts) scene.remove(g);
+  gifts=[];
+  collected=0;
+  countEl.textContent="0";
+  ended=false;
+  bunny.position.set(0,terrainHeight(0,10)+.20,10);
+  yaw=0; pitch=-.12;
+  camera.position.set(0,3.3,12);
+  for(let i=0;i<TOTAL;i++) makeGift(0,0,i);
+  finish.style.display="none";
+  showMessage("The meadow is waiting. Find all 41 gifts. 💜");
+}
+
+function startGame(){
+  started=true;
+  start.style.display="none";
+  resetGame();
+  renderer.domElement.requestPointerLock?.();
+}
+
+document.getElementById("startBtn").addEventListener("click",startGame);
+document.getElementById("againBtn").addEventListener("click",()=>{startGame()});
+
+addEventListener("keydown",e=>{
+  if(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)){
+    keys[e.code]=true;
+    e.preventDefault();
+  }
+});
+
+addEventListener("keyup",e=>{
+  keys[e.code]=false;
+});
+
+renderer.domElement.addEventListener("click",()=>{
+  if(started && !ended) renderer.domElement.requestPointerLock?.();
+});
+
+// Desktop: pointer-lock mouse look.
+// The camera's forward vector is derived from yaw, so W is ALWAYS forward,
+// S backward, A left, and D right relative to the player's current view.
+addEventListener("mousemove",e=>{
+  if(document.pointerLockElement!==renderer.domElement || !started || ended) return;
+  yaw-=e.movementX*.0022;
+  pitch-=e.movementY*.0017;
+  pitch=Math.max(-.75,Math.min(.55,pitch));
+});
+
+// Mobile: left thumb = movement, right side swipe = FPS look.
+const joystick=document.getElementById("joystick");
+const stick=document.getElementById("stick");
+const mobileControls=document.getElementById("mobileControls");
+
+function setJoystick(clientX,clientY){
+  const r=joystick.getBoundingClientRect();
+  const cx=r.left+r.width/2, cy=r.top+r.height/2;
+  let x=clientX-cx, y=clientY-cy;
+  const max=38;
+  const len=Math.hypot(x,y)||1;
+  if(len>max){x=x/len*max;y=y/len*max;}
+  stick.style.transform=`translate(${x}px,${y}px)`;
+  // y is screen-down: up on the stick means forward.
+  touchMove.x=x/max;
+  touchMove.y=-y/max;
+}
+
+function resetJoystick(){
+  stick.style.transform="translate(0px,0px)";
+  touchMove.x=0;
+  touchMove.y=0;
+}
+
+joystick.addEventListener("touchstart",e=>{
+  if(!started || ended) return;
+  e.preventDefault();
+  const touch=e.changedTouches[0];
+  joystickTouchId=touch.identifier;
+  setJoystick(touch.clientX,touch.clientY);
+},{passive:false});
+
+joystick.addEventListener("touchmove",e=>{
+  if(joystickTouchId===null) return;
+  e.preventDefault();
+  for(const touch of e.changedTouches){
+    if(touch.identifier===joystickTouchId){
+      setJoystick(touch.clientX,touch.clientY);
+      break;
+    }
+  }
+},{passive:false});
+
+function endJoystick(e){
+  for(const touch of e.changedTouches){
+    if(touch.identifier===joystickTouchId){
+      joystickTouchId=null;
+      resetJoystick();
+      break;
+    }
+  }
+}
+joystick.addEventListener("touchend",endJoystick,{passive:false});
+joystick.addEventListener("touchcancel",endJoystick,{passive:false});
+
+mobileControls.addEventListener("touchstart",e=>{
+  if(!started || ended) return;
+  for(const touch of e.changedTouches){
+    // Anything outside the joystick can be used to look.
+    if(touch.clientX>140 && lookTouchId===null){
+      lookTouchId=touch.identifier;
+      lookLastX=touch.clientX;
+      lookLastY=touch.clientY;
+    }
+  }
+},{passive:true});
+
+mobileControls.addEventListener("touchmove",e=>{
+  if(lookTouchId===null) return;
+  for(const touch of e.changedTouches){
+    if(touch.identifier===lookTouchId){
+      const dx=touch.clientX-lookLastX;
+      const dy=touch.clientY-lookLastY;
+      yaw-=dx*.006;
+      pitch-=dy*.0045;
+      pitch=Math.max(-.75,Math.min(.55,pitch));
+      lookLastX=touch.clientX;
+      lookLastY=touch.clientY;
+      e.preventDefault();
+      break;
+    }
+  }
+},{passive:false});
+
+function endLook(e){
+  for(const touch of e.changedTouches){
+    if(touch.identifier===lookTouchId){
+      lookTouchId=null;
+      break;
+    }
+  }
+}
+mobileControls.addEventListener("touchend",endLook,{passive:true});
+mobileControls.addEventListener("touchcancel",endLook,{passive:true});
+
+
+function update(dt,t){
+  if(!started || ended) return;
+
+  let strafe=0, forwardInput=0;
+
+  // Keyboard controls.
+  if(keys.KeyA || keys.ArrowLeft) strafe-=1;
+  if(keys.KeyD || keys.ArrowRight) strafe+=1;
+  if(keys.KeyW || keys.ArrowUp) forwardInput+=1;
+  if(keys.KeyS || keys.ArrowDown) forwardInput-=1;
+
+  // Add mobile joystick input.
+  strafe+=touchMove.x;
+  forwardInput+=touchMove.y;
+
+  const inputLen=Math.hypot(strafe,forwardInput)||1;
+  if(inputLen>1){
+    strafe/=inputLen;
+    forwardInput/=inputLen;
+  }
+
+  const speed=7.0;
+
+  // This is the single source of truth for FPS-style movement.
+  // At yaw=0, forward is -Z (the direction the camera looks).
+  const forward=new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw));
+  const right=new THREE.Vector3(Math.cos(yaw),0,Math.sin(yaw));
+
+  const move=new THREE.Vector3()
+    .addScaledVector(forward,forwardInput*speed*dt)
+    .addScaledVector(right,strafe*speed*dt);
+
+  bunny.position.add(move);
+  bunny.position.x=THREE.MathUtils.clamp(bunny.position.x,-69,69);
+  bunny.position.z=THREE.MathUtils.clamp(bunny.position.z,-69,69);
+  const groundY=terrainHeight(bunny.position.x,bunny.position.z);
+  const moving=Math.hypot(strafe,forwardInput)>.05;
+  bunny.position.y=groundY+.20;
+
+  // Bunny points exactly where it is moving. When moving straight forward,
+  // that is the same direction as the center of the player's view.
+  if(moving){
+    if(move.lengthSq()>0.000001){
+        bunny.rotation.y = yaw + Math.PI;
+      }
+
+    const cycle=t*14.5;
+    const front=bunny.userData.frontLegs;
+    const hind=bunny.userData.hindLegs;
+
+    front[0].rotation.x=Math.sin(cycle)*.42;
+    front[1].rotation.x=Math.sin(cycle+Math.PI)*.42;
+    hind[0].rotation.x=Math.sin(cycle+Math.PI)*.58;
+    hind[1].rotation.x=Math.sin(cycle)*.58;
+
+    front[0].position.z=.45+Math.cos(cycle)*.07;
+    front[1].position.z=.45+Math.cos(cycle+Math.PI)*.07;
+    hind[0].position.z=-.48+Math.cos(cycle+Math.PI)*.12;
+    hind[1].position.z=-.48+Math.cos(cycle)*.12;
+
+    // A subtle body bounce makes the motion feel like an animal rather than
+    // a sliding character.
+    bunny.position.y=groundY+.20+Math.abs(Math.sin(cycle))*.035;
+    bunny.userData.body.rotation.x=.035+Math.sin(cycle)*.025;
+    bunny.userData.head.rotation.x=Math.sin(cycle+Math.PI)*.018;
+    bunny.userData.tail.rotation.x=Math.sin(cycle)*.14;
+    bunny.userData.tail.rotation.y=Math.cos(cycle)*.08;
+  }else{
+    bunny.userData.frontLegs[0].rotation.x=0;
+    bunny.userData.frontLegs[1].rotation.x=0;
+    bunny.userData.hindLegs[0].rotation.x=0;
+    bunny.userData.hindLegs[1].rotation.x=0;
+    bunny.userData.body.rotation.x=.02;
+    bunny.userData.head.rotation.x=0;
+    bunny.userData.tail.rotation.x=0;
+    bunny.userData.tail.rotation.y=0;
+  }
+
+  const desired=new THREE.Vector3(
+    bunny.position.x - Math.sin(yaw)*7.5,
+    bunny.position.y + 4.1 + pitch*3,
+    bunny.position.z + Math.cos(yaw)*7.5
+  );
+  camera.position.lerp(desired,.12);
+  const look=new THREE.Vector3(
+    bunny.position.x,
+    bunny.position.y+1.25+pitch*1.5,
+    bunny.position.z
+  );
+  camera.lookAt(look);
+
+  for(const g of gifts){
+    if(g.userData.collected) continue;
+    g.rotation.y+=dt*.8;
+    g.position.y=g.userData.baseY+.48+Math.sin(t*2.1+g.userData.phase)*.13;
+    if(g.position.distanceTo(bunny.position)<2.15) collectGift(g);
+  }
+
+  const windX=Math.sin(t*.31)*.7+Math.sin(t*.73)*.25;
+  const windZ=Math.cos(t*.27)*.7+Math.sin(t*.51)*.25;
+  for(const patch of grass){
+    const p=patch.userData.phase;
+    patch.rotation.z=Math.sin(t*1.2+p)*.035 + windX*.035;
+    patch.rotation.x=Math.cos(t*1.0+p)*.025 + windZ*.025;
+  }
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),.05);
+  const t=clock.elapsedTime;
+  update(dt,t);
+  renderer.render(scene,camera);
+}
+animate();
+
+addEventListener("resize",()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
