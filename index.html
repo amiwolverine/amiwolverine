@@ -34,7 +34,8 @@
 
   /* Mobile FPS controls */
   #mobileControls{
-    position:fixed;inset:0;z-index:7;display:none;pointer-events:none;
+    position:fixed;inset:0;z-index:7;display:none;
+    pointer-events:auto;
     touch-action:none;
   }
   #joystick{
@@ -52,6 +53,7 @@
     position:absolute;right:18px;bottom:34px;max-width:150px;
     padding:9px 12px;border-radius:14px;background:rgba(77,48,92,.5);
     color:#fff;font-size:12px;text-align:center;text-shadow:0 1px 3px #5b476a;
+    pointer-events:none;
   }
   #crosshair{
     position:fixed;left:50%;top:50%;width:8px;height:8px;z-index:4;
@@ -188,11 +190,11 @@ let yaw = 0, pitch = -0.12;
 let bunny, gifts = [], grass = [];
 const worldSize = 150;
 
-// Mobile virtual joystick state.
-const touchMove={x:0,y:0};
-let lookTouchId=null;
-let lookLastX=0, lookLastY=0;
-let joystickTouchId=null;
+// Mobile virtual joystick & look state
+const touchMove = {x: 0, y: 0};
+let lookTouchId = null;
+let lookLastX = 0, lookLastY = 0;
+let joystickTouchId = null;
 
 function terrainHeight(x,z){
   return 2.5*Math.sin(x*.055)*Math.cos(z*.047)
@@ -223,7 +225,6 @@ function addGrass(){
     color:0x6a9d57, roughness:1, side:THREE.DoubleSide
   });
 
-  // Dense little clumps instead of isolated vertical sticks.
   const bladeGeo=new THREE.ConeGeometry(.035,.42,5);
   const bladeWideGeo=new THREE.ConeGeometry(.055,.34,5);
 
@@ -345,8 +346,6 @@ function makeBunny(){
     color:0xffffff, roughness:.35
   });
 
-  // A rabbit should be longer than it is tall: compact body, smaller head,
-  // large hindquarters, and feet that actually meet the ground.
   const body=new THREE.Mesh(new THREE.SphereGeometry(1,30,22),fur);
   body.scale.set(.78,.70,1.02);
   body.position.set(0,1.12,-.02);
@@ -373,7 +372,6 @@ function makeBunny(){
   group.add(head);
   group.userData.head=head;
 
-  // Softer, narrower ears for a more natural silhouette.
   for(const s of [-1,1]){
     const ear=new THREE.Mesh(new THREE.CapsuleGeometry(.17,.82,10,16),fur);
     ear.position.set(s*.30,2.82,.48);
@@ -389,7 +387,6 @@ function makeBunny(){
     group.add(inEar);
   }
 
-  // Eyes are smaller and set into the face instead of looking cartoonishly wide.
   for(const s of [-1,1]){
     const eye=new THREE.Mesh(new THREE.SphereGeometry(.075,16,12),dark);
     eye.position.set(s*.245,2.06,1.13);
@@ -462,7 +459,6 @@ function makeBunny(){
   group.userData.frontLegs=frontLegs;
   group.userData.hindLegs=hindLegs;
 
-  // Small whiskers, kept subtle.
   for(const s of [-1,1]){
     for(let i=0;i<2;i++){
       const whisker=new THREE.Mesh(
@@ -595,8 +591,6 @@ renderer.domElement.addEventListener("click",()=>{
 });
 
 // Desktop: pointer-lock mouse look.
-// The camera's forward vector is derived from yaw, so W is ALWAYS forward,
-// S backward, A left, and D right relative to the player's current view.
 addEventListener("mousemove",e=>{
   if(document.pointerLockElement!==renderer.domElement || !started || ended) return;
   yaw-=e.movementX*.0022;
@@ -604,114 +598,100 @@ addEventListener("mousemove",e=>{
   pitch=Math.max(-.75,Math.min(.55,pitch));
 });
 
-// Mobile: left thumb = movement, right side swipe = FPS look.
-const joystick=document.getElementById("joystick");
-const stick=document.getElementById("stick");
-const mobileControls=document.getElementById("mobileControls");
+// Mobile virtual joystick & look state logic
+const joystick = document.getElementById("joystick");
+const stick = document.getElementById("stick");
+const mobileControls = document.getElementById("mobileControls");
 
-function setJoystick(clientX,clientY){
-  const r=joystick.getBoundingClientRect();
-  const cx=r.left+r.width/2, cy=r.top+r.height/2;
-  let x=clientX-cx, y=clientY-cy;
-  const max=38;
-  const len=Math.hypot(x,y)||1;
-  if(len>max){x=x/len*max;y=y/len*max;}
-  stick.style.transform=`translate(${x}px,${y}px)`;
-  // y is screen-down: up on the stick means forward.
-  touchMove.x=x/max;
-  touchMove.y=-y/max;
+function setJoystick(clientX, clientY) {
+  const r = joystick.getBoundingClientRect();
+  const cx = r.left + r.width / 2;
+  const cy = r.top + r.height / 2;
+  let x = clientX - cx;
+  let y = clientY - cy;
+  const max = 38;
+  const len = Math.hypot(x, y) || 1;
+  if (len > max) {
+    x = (x / len) * max;
+    y = (y / len) * max;
+  }
+  stick.style.transform = `translate(${x}px,${y}px)`;
+  touchMove.x = x / max;
+  touchMove.y = -y / max;
 }
 
-function resetJoystick(){
-  stick.style.transform="translate(0px,0px)";
-  touchMove.x=0;
-  touchMove.y=0;
+function resetJoystick() {
+  stick.style.transform = "translate(0px,0px)";
+  touchMove.x = 0;
+  touchMove.y = 0;
 }
 
-joystick.addEventListener("touchstart",e=>{
-  if(!started || ended) return;
-  e.preventDefault();
-  const touch=e.changedTouches[0];
-  joystickTouchId=touch.identifier;
-  setJoystick(touch.clientX,touch.clientY);
-},{passive:false});
+mobileControls.addEventListener("touchstart", (e) => {
+  if (!started || ended) return;
+  
+  for (const touch of e.changedTouches) {
+    const r = joystick.getBoundingClientRect();
+    const isJoystickArea = 
+      touch.clientX >= r.left - 20 && 
+      touch.clientX <= r.right + 20 && 
+      touch.clientY >= r.top - 20 && 
+      touch.clientY <= r.bottom + 20;
 
-joystick.addEventListener("touchmove",e=>{
-  if(joystickTouchId===null) return;
-  e.preventDefault();
-  for(const touch of e.changedTouches){
-    if(touch.identifier===joystickTouchId){
-      setJoystick(touch.clientX,touch.clientY);
-      break;
+    if (isJoystickArea && joystickTouchId === null) {
+      joystickTouchId = touch.identifier;
+      setJoystick(touch.clientX, touch.clientY);
+    } else if (!isJoystickArea && touch.clientX > window.innerWidth * 0.35 && lookTouchId === null) {
+      lookTouchId = touch.identifier;
+      lookLastX = touch.clientX;
+      lookLastY = touch.clientY;
     }
   }
-},{passive:false});
+}, { passive: false });
 
-function endJoystick(e){
-  for(const touch of e.changedTouches){
-    if(touch.identifier===joystickTouchId){
-      joystickTouchId=null;
+mobileControls.addEventListener("touchmove", (e) => {
+  if (!started || ended) return;
+  e.preventDefault();
+
+  for (const touch of e.changedTouches) {
+    if (touch.identifier === joystickTouchId) {
+      setJoystick(touch.clientX, touch.clientY);
+    } else if (touch.identifier === lookTouchId) {
+      const dx = touch.clientX - lookLastX;
+      const dy = touch.clientY - lookLastY;
+      yaw -= dx * 0.005;
+      pitch -= dy * 0.004;
+      pitch = Math.max(-0.75, Math.min(0.55, pitch));
+      lookLastX = touch.clientX;
+      lookLastY = touch.clientY;
+    }
+  }
+}, { passive: false });
+
+function handleTouchEnd(e) {
+  for (const touch of e.changedTouches) {
+    if (touch.identifier === joystickTouchId) {
+      joystickTouchId = null;
       resetJoystick();
-      break;
+    }
+    if (touch.identifier === lookTouchId) {
+      lookTouchId = null;
     }
   }
 }
-joystick.addEventListener("touchend",endJoystick,{passive:false});
-joystick.addEventListener("touchcancel",endJoystick,{passive:false});
 
-mobileControls.addEventListener("touchstart",e=>{
-  if(!started || ended) return;
-  for(const touch of e.changedTouches){
-    // Anything outside the joystick can be used to look.
-    if(touch.clientX>140 && lookTouchId===null){
-      lookTouchId=touch.identifier;
-      lookLastX=touch.clientX;
-      lookLastY=touch.clientY;
-    }
-  }
-},{passive:true});
-
-mobileControls.addEventListener("touchmove",e=>{
-  if(lookTouchId===null) return;
-  for(const touch of e.changedTouches){
-    if(touch.identifier===lookTouchId){
-      const dx=touch.clientX-lookLastX;
-      const dy=touch.clientY-lookLastY;
-      yaw-=dx*.006;
-      pitch-=dy*.0045;
-      pitch=Math.max(-.75,Math.min(.55,pitch));
-      lookLastX=touch.clientX;
-      lookLastY=touch.clientY;
-      e.preventDefault();
-      break;
-    }
-  }
-},{passive:false});
-
-function endLook(e){
-  for(const touch of e.changedTouches){
-    if(touch.identifier===lookTouchId){
-      lookTouchId=null;
-      break;
-    }
-  }
-}
-mobileControls.addEventListener("touchend",endLook,{passive:true});
-mobileControls.addEventListener("touchcancel",endLook,{passive:true});
-
+mobileControls.addEventListener("touchend", handleTouchEnd, { passive: false });
+mobileControls.addEventListener("touchcancel", handleTouchEnd, { passive: false });
 
 function update(dt,t){
   if(!started || ended) return;
 
   let strafe=0, forwardInput=0;
 
-  // Keyboard controls.
   if(keys.KeyA || keys.ArrowLeft) strafe-=1;
   if(keys.KeyD || keys.ArrowRight) strafe+=1;
   if(keys.KeyW || keys.ArrowUp) forwardInput+=1;
   if(keys.KeyS || keys.ArrowDown) forwardInput-=1;
 
-  // Add mobile joystick input.
   strafe+=touchMove.x;
   forwardInput+=touchMove.y;
 
@@ -723,8 +703,6 @@ function update(dt,t){
 
   const speed=7.0;
 
-  // This is the single source of truth for FPS-style movement.
-  // At yaw=0, forward is -Z (the direction the camera looks).
   const forward=new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw));
   const right=new THREE.Vector3(Math.cos(yaw),0,Math.sin(yaw));
 
@@ -739,8 +717,6 @@ function update(dt,t){
   const moving=Math.hypot(strafe,forwardInput)>.05;
   bunny.position.y=groundY+.20;
 
-  // Bunny points exactly where it is moving. When moving straight forward,
-  // that is the same direction as the center of the player's view.
   if(moving){
     if(move.lengthSq()>0.000001){
         bunny.rotation.y = yaw + Math.PI;
@@ -760,8 +736,6 @@ function update(dt,t){
     hind[0].position.z=-.48+Math.cos(cycle+Math.PI)*.12;
     hind[1].position.z=-.48+Math.cos(cycle)*.12;
 
-    // A subtle body bounce makes the motion feel like an animal rather than
-    // a sliding character.
     bunny.position.y=groundY+.20+Math.abs(Math.sin(cycle))*.035;
     bunny.userData.body.rotation.x=.035+Math.sin(cycle)*.025;
     bunny.userData.head.rotation.x=Math.sin(cycle+Math.PI)*.018;
