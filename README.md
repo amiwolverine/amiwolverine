@@ -1,109 +1,48 @@
-# 41 Little Gifts — Birthday Bunny 🎂🐰
+# 🐰 41 Little Gifts — Birthday Bunny
 
-A small browser-based birthday game built with **Three.js**. Explore a meadow as a purple bunny, find all **41 gifts**, and read the little messages attached to them.
+A lightweight, interactive 3D browser game created as a personal birthday gift. Players explore a stylized meadow as a little white bunny, collecting 41 scattered gift boxes filled with custom birthday messages[cite: 6].
 
-## Features
+---
 
-- 🎁 41 collectible birthday gifts
-- 🐰 Cute purple bunny character
-- 🏃 Walking/running animation with moving legs and a small body bounce
-- 🌳 Randomly placed trees
-- 🌱 Dense clustered grass instead of isolated grass sticks
-- ✨ Gift animations and collection effects
-- 🖱️ Desktop FPS-style controls
-- 📱 Mobile joystick and swipe-to-look controls
-- 🔒 Pointer-lock mouse look on desktop
-- 🌈 Procedural rolling meadow terrain
-- 💜 Birthday messages for each gift
-- 📦 No build step required — it runs directly in a modern browser
+## ✨ Features
 
-## Controls
+- **Interactive 3D World**: Built entirely with [Three.js](https://threejs.org/) featuring dynamic terrain, swaying grass, fluttering butterflies, clouds, birds, and windmills[cite: 6].
+- **41 Collectible Gifts**: Gift boxes scattered across the meadow, each triggering a custom surprise message and a confetti explosion upon contact[cite: 6].
+- **Custom Bunny Character**: Smooth movement and walking animations[cite: 6].
+- **Synthesizer Background Music**: Web Audio API-generated cheerful background tune[cite: 6].
+- **Cross-Platform Controls**:
+  - **Desktop**: First-person style movement (`WASD` / Arrow Keys + Mouse to look)[cite: 6].
+  - **Mobile**: On-screen touch joystick for movement and swipe-to-look controls[cite: 6].
 
-### Desktop
+---
 
-- **W / ↑** — move forward
-- **S / ↓** — move backward
-- **A / ←** — move left
-- **D / →** — move right
-- **Mouse** — look around within a 180° horizontal view
-- **Click the game** — enable mouse/pointer lock
-- **Esc** — release pointer lock
+## 🎮 How to Play
 
-### Mobile
+### Controls
 
-- **Left joystick** — move
-- **Swipe on the right side** — look around within a 180° horizontal view
-- **Tap Start** — begin the game
+| Action | Desktop | Mobile / Touch |
+| :--- | :--- | :--- |
+| **Move** | `W` `A` `S` `D` or `Arrow Keys` | Virtual Joystick (Bottom Left)[cite: 6] |
+| **Look / Rotate Camera** | Mouse Movement (Click to lock cursor) | Drag / Swipe (Right side of screen)[cite: 6] |
 
-## Run locally
+### Objective
+Walk into all 41 gift boxes hidden throughout the meadow to read all the messages and unlock the final birthday greeting[cite: 6]!
 
-The game is a single HTML file, but using a small local web server is recommended because the page imports Three.js as an ES module.
+---
 
-### Option 1 — Python
+## 🛠️ Tech Stack
 
-```bash
-python3 -m http.server 8000
-```
+- **HTML5 & CSS3**: Responsive styling and UI overlays[cite: 6].
+- **JavaScript (ES6 Modules)**: Core game logic[cite: 6].
+- **Three.js**: 3D scene rendering, lighting, shadows, and animations[cite: 6].
+- **Web Audio API**: Real-time sound generation without external audio files[cite: 6].
 
-Then open:
+---
 
-```text
-http://localhost:8000/
-```
+## 🚀 Running Locally
 
-### Option 2 — VS Code
+Because the project is self-contained within a single HTML file, you don't need a build process or server installation.
 
-Install the **Live Server** extension and open `index.html` with Live Server.
-
-## GitHub Pages
-
-1. Create a new GitHub repository.
-2. Upload:
-   - `index.html`
-   - `README.md`
-3. Commit the files.
-4. In the repository, open **Settings → Pages**.
-5. Under **Build and deployment**, choose:
-   - **Source:** Deploy from a branch
-   - **Branch:** `main`
-   - **Folder:** `/ (root)`
-6. Save and wait for GitHub Pages to publish the site.
-
-Your game should then be available at your GitHub Pages URL.
-
-## Project structure
-
-```text
-41-little-gifts/
-├── index.html
-└── README.md
-```
-
-## Technology
-
-- HTML5
-- CSS3
-- JavaScript
-- [Three.js](https://threejs.org/)
-
-Three.js is loaded from jsDelivr, so an internet connection is required when the game starts.
-
-## Notes
-
-The game uses procedural geometry for the bunny, terrain, trees, grass, gifts, and other scenery. There are no separate image, model, or texture assets required.
-
-The game is intended as a personal birthday project and can be customized directly in `index.html`.
-
-## Customizing the game
-
-Useful areas to edit in `index.html` include:
-
-- **Birthday messages** — edit the gift/message data.
-- **Bunny appearance** — edit `makeBunny()`.
-- **Terrain** — edit `terrainHeight()`.
-- **Grass** — edit `addGrass()`.
-- **Trees** — edit `addTrees()`.
-- **Movement speed** — change the `speed` value in `update()`.
-- **Colors and lighting** — adjust the Three.js materials and lights.
-
-Enjoy the birthday adventure! 💜🐰🎁
+1. **Clone the repository**:
+   ```bash
+   git clone [https://github.com/YOUR-USERNAME/41-little-gifts.git](https://github.com/YOUR-USERNAME/41-little-gifts.git)
